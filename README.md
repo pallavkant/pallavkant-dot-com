@@ -1,6 +1,6 @@
 NOTE: Repo does not include the .env file. You will need to create a .env file and include the following: 
-REACT_APP_WEB3FORMS_ACCESS_KEY=YOUR KEY
-REACT_APP_HCAPTCHA_SITEKEY=YOUR KEY
+1. REACT_APP_WEB3FORMS_ACCESS_KEY=YOUR KEY, 
+2. REACT_APP_HCAPTCHA_SITEKEY=YOUR KEY
 
 # Getting Started with Create React App
 
