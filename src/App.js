@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import "./styles.css";
 
-const FORM_SUBMIT_EMAIL = process.env.REACT_APP_FORM_SUBMIT_EMAIL || "YOUR_EMAIL@example.com";
-const FORM_SUBMIT_URL = `https://formsubmit.co/${FORM_SUBMIT_EMAIL}`;
+const WEB3FORMS_ACCESS_KEY = process.env.REACT_APP_WEB3FORMS_ACCESS_KEY || "YOUR_WEB3FORMS_ACCESS_KEY";
+const HCAPTCHA_SITEKEY = process.env.REACT_APP_HCAPTCHA_SITEKEY || "YOUR_HCAPTCHA_SITEKEY";
+const WEB3FORMS_URL = "https://api.web3forms.com/submit";
 
 const LANG_COLORS = {
   JavaScript: "#f1e05a", TypeScript: "#3178c6", Python: "#3572A5",
@@ -384,6 +385,40 @@ function Contact() {
   const [status, setStatus] = useState(null); // null | 'success' | 'error' | 'config'
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRef = useRef(null);
+  const widgetIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!captchaRef.current) return;
+
+    const renderCaptcha = () => {
+      if (!window.hcaptcha || widgetIdRef.current !== null) return;
+      widgetIdRef.current = window.hcaptcha.render(captchaRef.current, {
+        sitekey: HCAPTCHA_SITEKEY,
+        size: "normal",
+        callback: setCaptchaToken,
+        "error-callback": () => setCaptchaToken(""),
+        "expired-callback": () => setCaptchaToken(""),
+      });
+    };
+
+    if (window.hcaptcha) {
+      renderCaptcha();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://hcaptcha.com/1/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderCaptcha;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -393,9 +428,21 @@ function Contact() {
       return;
     }
 
-    if (FORM_SUBMIT_EMAIL === "YOUR_EMAIL@example.com") {
+    if (WEB3FORMS_ACCESS_KEY === "YOUR_WEB3FORMS_ACCESS_KEY") {
       setStatus("config");
-      setErrorMessage("Please set REACT_APP_FORM_SUBMIT_EMAIL in your .env file.");
+      setErrorMessage("Please set REACT_APP_WEB3FORMS_ACCESS_KEY in your .env file.");
+      return;
+    }
+
+    if (HCAPTCHA_SITEKEY === "YOUR_HCAPTCHA_SITEKEY") {
+      setStatus("config");
+      setErrorMessage("Please set REACT_APP_HCAPTCHA_SITEKEY in your .env file.");
+      return;
+    }
+
+    if (!captchaToken) {
+      setStatus("error");
+      setErrorMessage("Please complete the captcha.");
       return;
     }
 
@@ -403,28 +450,37 @@ function Contact() {
     setStatus(null);
 
     try {
-      const response = await fetch(FORM_SUBMIT_URL, {
+      const payload = {
+        access_key: WEB3FORMS_ACCESS_KEY,
+        subject: `Message from ${form.name} via pallavkant.com`,
+        name: form.name,
+        email: form.email,
+        message: form.message,
+        "h-captcha-response": captchaToken,
+      };
+
+      const response = await fetch(WEB3FORMS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          message: form.message,
-          _subject: `Message from ${form.name} via pallavkant.com`,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Submit failed");
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message || "Submit failed");
 
       setStatus("success");
       setForm({ name: "", email: "", message: "" });
+      setCaptchaToken("");
+      if (window.hcaptcha && widgetIdRef.current !== null) {
+        window.hcaptcha.reset(widgetIdRef.current);
+      }
     } catch (error) {
       setStatus("error");
       setErrorMessage("There was a problem sending the message. Please try again.");
-      console.error("FormSubmit send error:", error);
+      console.error("Web3Forms send error:", error);
     } finally {
       setLoading(false);
     }
@@ -466,6 +522,9 @@ function Contact() {
               <div className="form-group">
                 <label>Message</label>
                 <textarea placeholder="What's on your mind?" value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <div ref={captchaRef} className="hcaptcha-widget" />
               </div>
               {status === "success" && <div className="form-status success">✨ Thank you for your message!</div>}
               {(status === "error" || status === "config") && <div className="form-status error">{errorMessage}</div>}
