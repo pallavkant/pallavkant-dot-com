@@ -1,3 +1,4 @@
+NOTE: Repo does not include the .env file. You will need to create a .env file and include the following: REACT_APP_FORM_SUBMIT_EMAIL=YOUR_EMAIL (Replace YOUR_EMAIL with actual email address).
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
